@@ -89,8 +89,9 @@ DWORD bytes_read;           // liczba odczytanych byte
 FSIZE_t ofs = 0;			// offset pliku
 
 volatile uint16_t pulse_count;		// Licznik impulsow
-volatile uint16_t position = 0;		// Licznik przekreconych pozycji
-uint16_t posBuffer = 0;
+volatile uint16_t position;		// Licznik przekreconych pozycji
+uint16_t posBuffer = 1;
+uint16_t timPosBuffer = 1;
 
 char song_list[256][256];
 
@@ -188,7 +189,7 @@ int main(void)
 
   HAL_TIM_Base_Start_IT(&htim2); 			// start TIMER
   HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL);
-  TIM1->ARR = 403;
+  TIM1->ARR = 15;									// liczba piosenek * 4 - 1
 
   fresult = f_mount(&FatFs, "", 0);
 
@@ -198,7 +199,7 @@ int main(void)
 	  fresult = list_files(buff);
   }
 
-  fresult = f_open(&file, song_list[3] , FA_READ);
+  fresult = f_open(&file, song_list[1] , FA_READ);
 
   /* USER CODE END 2 */
 
@@ -206,7 +207,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  pulse_count = TIM1->CNT;
+	  pulse_count = TIM1->CNT + 4;
 	  position = pulse_count/4;
 
 	  if(flag == 0 && flag2 == 1)
@@ -219,6 +220,16 @@ int main(void)
 	  {
 		  fresult = f_read(&file, wavBuffer2, (FSIZE_t)512, &bytes_read);
 		  flag = 0;
+	  }
+
+	  if(posBuffer != position){
+
+		  // wtedy odpal plik o nazwie z song_list[position]
+
+		  fresult = f_close(&file);
+		  fresult = f_open(&file, song_list[position] , FA_READ);
+
+		  posBuffer = position;
 	  }
 
   /* USER CODE END WHILE */
@@ -525,6 +536,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 			{
 				s = 0;
 				flag2 = 1;
+				if(timPosBuffer != posBuffer){
+					ofs = 0;
+					timPosBuffer = posBuffer;
+				}
 				ofs = ofs + (FSIZE_t)512;
 				if(ofs > /*237500*/ 1000000000) ofs = 0;
 				fresult = f_lseek(&file, ofs);
@@ -542,6 +557,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 			{
 				s = 0;
 				flag2 = 0;
+				if(timPosBuffer != posBuffer){
+					ofs = 0;
+					timPosBuffer = posBuffer;
+				}
 				ofs = ofs + (FSIZE_t)512;
 				if(ofs > /*237500*/ 1000000000) ofs = 0;
 				fresult = f_lseek(&file, ofs);
