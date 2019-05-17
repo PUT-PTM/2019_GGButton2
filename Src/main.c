@@ -42,8 +42,9 @@
 
 /* USER CODE BEGIN Includes */
 #include "MY_CS43L22.h"
-#include <math.h>
 #include "ff.h"
+#include <string.h>
+#include <math.h>
 
 #define  	FA_READ         	0x01
 #define  	FA_WRITE        	0x02
@@ -91,6 +92,8 @@ volatile uint16_t pulse_count;		// Licznik impulsow
 volatile uint16_t position = 0;		// Licznik przekreconych pozycji
 uint16_t posBuffer = 0;
 
+char song_list[256][256];
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -110,6 +113,28 @@ static void MX_TIM1_Init(void);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
+
+FRESULT list_files(char* path)
+{
+
+	// char song_list[256][256];	 [MAX_NUMBER_STRINGS][MAX_STRING_SIZE]
+
+	FRESULT res;
+	DIR dir;
+	FILINFO fno;
+
+	res = f_opendir(&dir, path);							// Open the directory
+	if(res == FR_OK){
+		for(int i = 0; i < 100000; i++){
+			res = f_readdir(&dir, &fno);					// Read a directory item
+			if(res != FR_OK || fno.fname[0] == 0) break;	// Break on error or end of directory
+			strcpy(song_list[i], fno.fname);
+		}
+
+		f_closedir(&dir);
+	}
+	return res;
+}
 
 /* USER CODE END 0 */
 
@@ -166,7 +191,14 @@ int main(void)
   TIM1->ARR = 403;
 
   fresult = f_mount(&FatFs, "", 0);
-  fresult = f_open(&file, "2.WAV", FA_READ);
+
+  if (fresult == FR_OK) {
+	  char buff[13];
+	  strcpy(buff, "/");
+	  fresult = list_files(buff);
+  }
+
+  fresult = f_open(&file, song_list[3] , FA_READ);
 
   /* USER CODE END 2 */
 
