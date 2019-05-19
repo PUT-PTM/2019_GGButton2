@@ -82,18 +82,20 @@ int x = 0;
 int i = 0;
 int s = 0;
 
-static FATFS FatFs;    		// uchwyt do urz¹dzenia FatFs (dysku, karty SD...)
-FRESULT fresult;	       	// do przechowywania wyniku operacji na bibliotece FatFs
-FIL file;                   // uchwyt do otwartego pliku
-DWORD bytes_read;           // liczba odczytanych byte
-FSIZE_t ofs = 0;			// offset pliku
+static FATFS FatFs;    				// uchwyt do urz¹dzenia FatFs (dysku, karty SD...)
+FRESULT fresult;	       			// do przechowywania wyniku operacji na bibliotece FatFs
+FIL file;                  			// uchwyt do otwartego pliku
+DWORD bytes_read;           		// liczba odczytanych byte
+FSIZE_t ofs = 0;					// offset pliku
 
 volatile uint16_t pulse_count;		// Licznik impulsow
-volatile uint16_t position;		// Licznik przekreconych pozycji
+volatile uint16_t position;			// Licznik przekreconych pozycji
 uint16_t posBuffer = 1;
 uint16_t timPosBuffer = 1;
 
 char song_list[256][256];
+uint32_t data_sizes[256];
+unsigned char buffer4[4];
 
 /* USER CODE END PV */
 
@@ -126,7 +128,7 @@ FRESULT list_files(char* path)
 
 	res = f_opendir(&dir, path);							// Open the directory
 	if(res == FR_OK){
-		for(int i = 0; i < 100000; i++){
+		for(int i = 0; i < 256; i++){
 			res = f_readdir(&dir, &fno);					// Read a directory item
 			if(res != FR_OK || fno.fname[0] == 0) break;	// Break on error or end of directory
 			strcpy(song_list[i], fno.fname);
@@ -135,6 +137,26 @@ FRESULT list_files(char* path)
 		f_closedir(&dir);
 	}
 	return res;
+}
+
+void parse_headers()
+{
+	FRESULT res;
+	FIL fil;
+
+	for(int i = 1; i <= 4; i++)
+	{
+		res = f_open(&fil, song_list[i] , FA_READ);
+		res = f_lseek(&fil, 74);
+		res = f_read(&fil, buffer4, (FSIZE_t)4, &bytes_read);
+
+		data_sizes[i] = buffer4[0] |
+				(buffer4[1] << 8) |
+				(buffer4[2] << 16) |
+				(buffer4[3] << 24 );
+
+		res = f_close(&fil);
+	}
 }
 
 /* USER CODE END 0 */
@@ -197,6 +219,7 @@ int main(void)
 	  char buff[13];
 	  strcpy(buff, "/");
 	  fresult = list_files(buff);
+	  parse_headers();
   }
 
   fresult = f_open(&file, song_list[1] , FA_READ);
@@ -222,12 +245,11 @@ int main(void)
 		  flag = 0;
 	  }
 
-	  if(posBuffer != position){
-
-		  // wtedy odpal plik o nazwie z song_list[position]
-
+	  if(posBuffer != position)
+	  {
 		  fresult = f_close(&file);
 		  fresult = f_open(&file, song_list[position] , FA_READ);
+
 
 		  posBuffer = position;
 	  }
