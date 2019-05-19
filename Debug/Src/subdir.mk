@@ -5,6 +5,7 @@
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
 ../Src/MY_CS43L22.c \
+../Src/STM_MY_LCD16X2.c \
 ../Src/audio.c \
 ../Src/diskio.c \
 ../Src/ff.c \
@@ -17,6 +18,7 @@ C_SRCS += \
 
 OBJS += \
 ./Src/MY_CS43L22.o \
+./Src/STM_MY_LCD16X2.o \
 ./Src/audio.o \
 ./Src/diskio.o \
 ./Src/ff.o \
@@ -29,6 +31,7 @@ OBJS += \
 
 C_DEPS += \
 ./Src/MY_CS43L22.d \
+./Src/STM_MY_LCD16X2.d \
 ./Src/audio.d \
 ./Src/diskio.d \
 ./Src/ff.d \
@@ -45,7 +48,7 @@ Src/%.o: ../Src/%.c
 	@echo 'Building file: $<'
 	@echo 'Invoking: MCU GCC Compiler'
 	@echo $(PWD)
-	arm-none-eabi-gcc -mcpu=cortex-m4 -mthumb -mfloat-abi=hard -mfpu=fpv4-sp-d16 '-D__weak=__attribute__((weak))' '-D__packed=__attribute__((__packed__))' -DUSE_HAL_DRIVER -DSTM32F407xx -I"J:/GitHub/2019_GGButton2/Inc" -I"J:/GitHub/2019_GGButton2/Drivers/STM32F4xx_HAL_Driver/Inc" -I"J:/GitHub/2019_GGButton2/Drivers/STM32F4xx_HAL_Driver/Inc/Legacy" -I"J:/GitHub/2019_GGButton2/Drivers/CMSIS/Device/ST/STM32F4xx/Include" -I"J:/GitHub/2019_GGButton2/Drivers/CMSIS/Include"  -Og -g3 -Wall -fmessage-length=0 -ffunction-sections -c -fmessage-length=0 -MMD -MP -MF"$(@:%.o=%.d)" -MT"$@" -o "$@" "$<"
+	arm-none-eabi-gcc -mcpu=cortex-m4 -mthumb -mfloat-abi=hard -mfpu=fpv4-sp-d16 '-D__weak=__attribute__((weak))' '-D__packed=__attribute__((__packed__))' -DUSE_HAL_DRIVER -DSTM32F407xx -I"E:/Studia/4 SEMESTR/Podstawy techniki mikroprocesorowej/Projekt/2019_GGButton2/Inc" -I"E:/Studia/4 SEMESTR/Podstawy techniki mikroprocesorowej/Projekt/2019_GGButton2/Drivers/STM32F4xx_HAL_Driver/Inc" -I"E:/Studia/4 SEMESTR/Podstawy techniki mikroprocesorowej/Projekt/2019_GGButton2/Drivers/STM32F4xx_HAL_Driver/Inc/Legacy" -I"E:/Studia/4 SEMESTR/Podstawy techniki mikroprocesorowej/Projekt/2019_GGButton2/Drivers/CMSIS/Device/ST/STM32F4xx/Include" -I"E:/Studia/4 SEMESTR/Podstawy techniki mikroprocesorowej/Projekt/2019_GGButton2/Drivers/CMSIS/Include"  -Og -g3 -Wall -fmessage-length=0 -ffunction-sections -c -fmessage-length=0 -MMD -MP -MF"$(@:%.o=%.d)" -MT"$@" -o "$@" "$<"
 	@echo 'Finished building: $<'
 	@echo ' '
 

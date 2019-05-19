@@ -45,6 +45,7 @@
 #include "ff.h"
 #include <string.h>
 #include <math.h>
+#include "STM_MY_LCD16X2.h"
 
 #define  	FA_READ         	0x01
 #define  	FA_WRITE        	0x02
@@ -91,9 +92,13 @@ DWORD bytes_read;           		// liczba odczytanych byte
 FSIZE_t ofs = 0;					// offset pliku
 
 volatile uint16_t pulse_count;		// Licznik impulsow
-volatile uint16_t position;			// Licznik przekreconych pozycji
-uint16_t posBuffer = 1;
+volatile uint16_t position = 1;			// Licznik przekreconych pozycji
+uint16_t posBuffer = 0;
 uint16_t timPosBuffer = 1;
+
+uint16_t potentiometerValue;
+char volumeLVL[15];
+int volumeHasChanged;
 
 char song_list[256][256];
 uint32_t data_sizes[256];
@@ -162,6 +167,60 @@ void parse_headers()
 	}
 }
 
+int volumeChange(int x)//volume changing function
+{
+	int times;
+	int value=0;
+	if(x<100)
+	{
+		CS43_Stop();
+
+		for(int i=0;i<16;i++)
+		{
+			volumeLVL[i]='\0';
+		}
+		if(volumeHasChanged != value) // zrobic z tego funkcje
+		{
+			LCD1602_clear();
+			LCD1602_print(song_list[position]);
+			LCD1602_2ndLine();
+			LCD1602_print(volumeLVL);
+		}
+		volumeHasChanged=value;
+
+	}else
+	{
+		CS43_Start();
+		value=  x/(82);
+		times=value/(3);
+		for(int i=0;i<16;i++)
+		{
+
+			if(times >=i)
+			{
+				volumeLVL[i]='|';
+			}
+			else
+			{
+				volumeLVL[i]='\0';
+			}
+		}
+
+		if(volumeHasChanged != value)
+		{
+			LCD1602_clear();
+			LCD1602_print(song_list[position]); //tutaj bedzie wpisywana aktualnie grana piosenka
+			LCD1602_2ndLine();
+			LCD1602_print(volumeLVL);
+
+		}
+		volumeHasChanged=value;
+
+	}
+	return value;
+}
+
+
 /* USER CODE END 0 */
 
 /**
@@ -204,9 +263,9 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   CS43_Init(hi2c1, MODE_ANALOG); 			// inicjalizacja interfejsu
-  CS43_SetVolume(25); 						// ustawienie g³oœnoœci
   CS43_Enable_RightLeft(CS43_RIGHT_LEFT);	// uaktywnienie obydwu kana³ów
   CS43_Start();								// start
+  LCD1602_Begin4BIT(RS_GPIO_Port,RS_Pin,E_Pin,D4_GPIO_Port,D4_Pin,D5_Pin,D6_Pin,D7_Pin);
 
   HAL_I2S_Transmit_DMA(&hi2s3, (uint16_t*)" ", 1);
 
@@ -228,12 +287,30 @@ int main(void)
 
   fresult = f_open(&file, song_list[1] , FA_READ);
 
+  LCD1602_clear();
+  LCD1602_print(song_list[1]); //tutaj bedzie wpisywana aktualnie grana piosenka
+  LCD1602_noCursor();
+  LCD1602_noBlink();
+  LCD1602_2ndLine();
+  LCD1602_print(volumeLVL);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+
+
+	  HAL_ADC_Start(&hadc1); //start potentiometer checking
+
+	  if(HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK)
+	  {
+		  potentiometerValue = HAL_ADC_GetValue(&hadc1);
+	  }
+
+	  CS43_SetVolume(volumeChange(potentiometerValue)); // ustawianie glosnosci
+
 	  pulse_count = TIM1->CNT + 4;
 	  position = pulse_count/4;
 
@@ -251,8 +328,7 @@ int main(void)
 
 	  if(posBuffer != position)
 	  {
-		  fresult = f_close(&file);
-		  fresult = f_open(&file, song_list[position] , FA_READ);
+		  CS43_SetVolume(volumeChange(potentiometerValue));
 
 
 		  posBuffer = position;
