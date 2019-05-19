@@ -167,6 +167,14 @@ void parse_headers()
 	}
 }
 
+void display()
+{
+	LCD1602_clear();
+	LCD1602_print(song_list[position]);
+	LCD1602_2ndLine();
+	LCD1602_print(volumeLVL);
+}
+
 int volumeChange(int x)//volume changing function
 {
 	int times;
@@ -181,10 +189,7 @@ int volumeChange(int x)//volume changing function
 		}
 		if(volumeHasChanged != value) // zrobic z tego funkcje
 		{
-			LCD1602_clear();
-			LCD1602_print(song_list[position]);
-			LCD1602_2ndLine();
-			LCD1602_print(volumeLVL);
+			display();
 		}
 		volumeHasChanged=value;
 
@@ -208,11 +213,7 @@ int volumeChange(int x)//volume changing function
 
 		if(volumeHasChanged != value)
 		{
-			LCD1602_clear();
-			LCD1602_print(song_list[position]); //tutaj bedzie wpisywana aktualnie grana piosenka
-			LCD1602_2ndLine();
-			LCD1602_print(volumeLVL);
-
+			display();
 		}
 		volumeHasChanged=value;
 
@@ -325,9 +326,7 @@ int main(void)
 	  {
 		  fresult = f_close(&file);
 		  fresult = f_open(&file, song_list[position] , FA_READ);
-		  CS43_SetVolume(volumeChange(potentiometerValue));
-
-
+		  display();
 		  posBuffer = position;
 	  }
 	  if(HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK)
