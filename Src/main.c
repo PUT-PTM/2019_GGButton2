@@ -92,8 +92,8 @@ DWORD bytes_read;           		// liczba odczytanych byte
 FSIZE_t ofs = 0;					// offset pliku
 
 volatile uint16_t pulse_count;		// Licznik impulsow
-volatile uint16_t position = 1;			// Licznik przekreconych pozycji
-uint16_t posBuffer = 0;
+volatile uint16_t position = 0;			// Licznik przekreconych pozycji
+uint16_t posBuffer = 1;
 uint16_t timPosBuffer = 1;
 
 uint16_t potentiometerValue;
