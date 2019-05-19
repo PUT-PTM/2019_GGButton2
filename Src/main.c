@@ -92,8 +92,8 @@ DWORD bytes_read;           		// liczba odczytanych byte
 FSIZE_t ofs = 0;					// offset pliku
 
 volatile uint16_t pulse_count;		// Licznik impulsow
-volatile uint16_t position = 1;			// Licznik przekreconych pozycji
-uint16_t posBuffer = 0;
+volatile uint16_t position;			// Licznik przekreconych pozycji
+uint16_t posBuffer = 1;
 uint16_t timPosBuffer = 1;
 
 uint16_t potentiometerValue;
@@ -288,7 +288,7 @@ int main(void)
   fresult = f_open(&file, song_list[1] , FA_READ);
 
   LCD1602_clear();
-  LCD1602_print(song_list[1]); //tutaj bedzie wpisywana aktualnie grana piosenka
+  LCD1602_print(song_list[position+1]); //tutaj bedzie wpisywana aktualnie grana piosenka
   LCD1602_noCursor();
   LCD1602_noBlink();
   LCD1602_2ndLine();
@@ -304,12 +304,7 @@ int main(void)
 
 	  HAL_ADC_Start(&hadc1); //start potentiometer checking
 
-	  if(HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK)
-	  {
-		  potentiometerValue = HAL_ADC_GetValue(&hadc1);
-	  }
 
-	  CS43_SetVolume(volumeChange(potentiometerValue)); // ustawianie glosnosci
 
 	  pulse_count = TIM1->CNT + 4;
 	  position = pulse_count/4;
@@ -328,11 +323,19 @@ int main(void)
 
 	  if(posBuffer != position)
 	  {
+		  fresult = f_close(&file);
+		  fresult = f_open(&file, song_list[position] , FA_READ);
 		  CS43_SetVolume(volumeChange(potentiometerValue));
 
 
 		  posBuffer = position;
 	  }
+	  if(HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK)
+	  {
+		  potentiometerValue = HAL_ADC_GetValue(&hadc1);
+	  }
+
+	  CS43_SetVolume(volumeChange(potentiometerValue)); // ustawianie glosnosci
 
   /* USER CODE END WHILE */
 
