@@ -1,7 +1,6 @@
-Src/ffsystem.o: ../Src/ffsystem.c \
- C:/Users/David/Downloads/2019_GGButton2/PTM_project/Inc/ff.h \
- C:/Users/David/Downloads/2019_GGButton2/PTM_project/Inc/ffconf.h
+Src/ffsystem.o: ../Src/ffsystem.c J:/GitHub/2019_GGButton2/Inc/ff.h \
+ J:/GitHub/2019_GGButton2/Inc/ffconf.h
 
-C:/Users/David/Downloads/2019_GGButton2/PTM_project/Inc/ff.h:
+J:/GitHub/2019_GGButton2/Inc/ff.h:
 
-C:/Users/David/Downloads/2019_GGButton2/PTM_project/Inc/ffconf.h:
+J:/GitHub/2019_GGButton2/Inc/ffconf.h:
