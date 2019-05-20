@@ -85,6 +85,8 @@ int x = 0;
 int i = 0;
 int s = 0;
 
+int zmienna;
+
 static FATFS FatFs;    				// uchwyt do urz¹dzenia FatFs (dysku, karty SD...)
 FRESULT fresult;	       			// do przechowywania wyniku operacji na bibliotece FatFs
 FIL file;                  			// uchwyt do otwartego pliku
