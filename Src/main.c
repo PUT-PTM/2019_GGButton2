@@ -222,6 +222,7 @@ int volumeChange(int x)//volume changing function
 
 	}
 	return value;
+
 }
 
 /* USER CODE END 0 */
@@ -335,6 +336,13 @@ int main(void)
 	  }
 
 	  CS43_SetVolume(volumeChange(potentiometerValue)); // ustawianie glosnosci
+
+
+	  while(1)
+	  {
+
+	  }
+
 
   /* USER CODE END WHILE */
 
