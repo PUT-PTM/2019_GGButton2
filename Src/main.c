@@ -63,8 +63,8 @@ ADC_HandleTypeDef hadc1;
 DAC_HandleTypeDef hdac;
 
 I2C_HandleTypeDef hi2c1;
-I2S_HandleTypeDef hi2s3;
 
+I2S_HandleTypeDef hi2s3;
 DMA_HandleTypeDef hdma_spi3_tx;
 
 SPI_HandleTypeDef hspi1;
@@ -264,7 +264,6 @@ int main(void)
   MX_SPI1_Init();
   MX_TIM1_Init();
   MX_ADC1_Init();
-
   /* USER CODE BEGIN 2 */
 
   // encoder
