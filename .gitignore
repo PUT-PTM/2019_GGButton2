@@ -4,6 +4,8 @@
 
 *.pydevproject
 .metadata
+.project
+.mxproject
 bin/
 tmp/
 *.tmp
@@ -23,7 +25,7 @@ Debug/
 *.launch
 
 # CDT-specific
-
+.cproject
 
 # PDT-specific
 .buildpath
