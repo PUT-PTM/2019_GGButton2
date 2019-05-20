@@ -336,6 +336,10 @@ int main(void)
 
 	  CS43_SetVolume(volumeChange(potentiometerValue)); // ustawianie glosnosci
 
+	  while(1){
+
+	  }
+
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
