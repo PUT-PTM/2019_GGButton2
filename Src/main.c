@@ -41,30 +41,30 @@
 #include "stm32f4xx_hal.h"
 
 /* USER CODE BEGIN Includes */
-#include "MY_CS43L22.h"
-#include "ff.h"
 #include <string.h>
 #include <math.h>
+#include "ff.h"
+#include "MY_CS43L22.h"
 #include "STM_MY_LCD16X2.h"
 
 #define  	FA_READ         	0x01
-#define  	FA_WRITE        	0x02
-#define  	FA_OPEN_EXISTING	0x00
-#define  	FA_CREATE_NEW   	0x04
-#define  	FA_CREATE_ALWAYS	0x08
-#define  	FA_OPEN_ALWAYS  	0x10
-#define  	FA_OPEN_APPEND  	0x30
+//#define  	FA_WRITE        	0x02
+//#define  	FA_OPEN_EXISTING	0x00
+//#define  	FA_CREATE_NEW   	0x04
+//#define  	FA_CREATE_ALWAYS	0x08
+//#define  	FA_OPEN_ALWAYS  	0x10
+//#define  	FA_OPEN_APPEND  	0x30
 
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
-ADC_HandleTypeDef hadc1;
 
+ADC_HandleTypeDef hadc1;
 DAC_HandleTypeDef hdac;
 
 I2C_HandleTypeDef hi2c1;
-
 I2S_HandleTypeDef hi2s3;
+
 DMA_HandleTypeDef hdma_spi3_tx;
 
 SPI_HandleTypeDef hspi1;
@@ -75,6 +75,7 @@ TIM_HandleTypeDef htim2;
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
 
+// sound variables
 uint8_t wavBuffer1[512];
 uint8_t wavBuffer2[512];
 
@@ -85,22 +86,26 @@ int x = 0;
 int i = 0;
 int s = 0;
 
+// fatFS variables
 static FATFS FatFs;    				// uchwyt do urz¹dzenia FatFs (dysku, karty SD...)
 FRESULT fresult;	       			// do przechowywania wyniku operacji na bibliotece FatFs
 FIL file;                  			// uchwyt do otwartego pliku
 DWORD bytes_read;           		// liczba odczytanych byte
 FSIZE_t ofs = 0;					// offset pliku
 
+// encoder variables
 volatile uint16_t pulse_count;		// Licznik impulsow
 volatile uint16_t position;			// Licznik przekreconych pozycji
 uint16_t posBuffer = 1;
 uint16_t timPosBuffer = 1;
 
+// potentiometer variables
 uint16_t potentiometerValue;
 char volumeLVL[15];
 int volumeHasChanged;
 
-char song_list[256][256];
+// listing/parsing variables
+char song_list[256][256];			// [MAX_NUMBER_STRINGS][MAX_STRING_SIZE]
 uint32_t data_sizes[256];
 unsigned char buffer4[4];
 
@@ -127,21 +132,19 @@ static void MX_ADC1_Init(void);
 
 FRESULT list_files(char* path)
 {
-
-	// char song_list[256][256];	 [MAX_NUMBER_STRINGS][MAX_STRING_SIZE]
-
 	FRESULT res;
 	DIR dir;
 	FILINFO fno;
 
 	res = f_opendir(&dir, path);							// Open the directory
-	if(res == FR_OK){
-		for(int i = 0; i < 256; i++){
+	if(res == FR_OK)
+	{
+		for(int i = 0; i < 256; i++)
+		{
 			res = f_readdir(&dir, &fno);					// Read a directory item
 			if(res != FR_OK || fno.fname[0] == 0) break;	// Break on error or end of directory
 			strcpy(song_list[i], fno.fname);
 		}
-
 		f_closedir(&dir);
 	}
 	return res;
@@ -178,30 +181,30 @@ void display()
 int volumeChange(int x)//volume changing function
 {
 	int times;
-	int value=0;
-	if(x<100)
+	int value = 0;
+	if(x < 100)
 	{
 		CS43_Stop();
 
-		for(int i=0;i<16;i++)
+		for(int i = 0; i < 16; i++)
 		{
-			volumeLVL[i]='\0';
+			volumeLVL[i] = '\0';
 		}
-		if(volumeHasChanged != value) // zrobic z tego funkcje
+		if(volumeHasChanged != value)
 		{
 			display();
 		}
 		volumeHasChanged=value;
 
-	}else
+	}
+	else
 	{
 		CS43_Start();
-		value=  x/(82);
-		times=value/(3);
-		for(int i=0;i<16;i++)
+		value = x/(82);
+		times = value/(3);
+		for(int i = 0; i < 16; i++)
 		{
-
-			if(times >=i)
+			if(times >= i)
 			{
 				volumeLVL[i]='|';
 			}
@@ -220,7 +223,6 @@ int volumeChange(int x)//volume changing function
 	}
 	return value;
 }
-
 
 /* USER CODE END 0 */
 
@@ -261,39 +263,40 @@ int main(void)
   MX_SPI1_Init();
   MX_TIM1_Init();
   MX_ADC1_Init();
+
   /* USER CODE BEGIN 2 */
 
-  CS43_Init(hi2c1, MODE_ANALOG); 			// inicjalizacja interfejsu
-  CS43_Enable_RightLeft(CS43_RIGHT_LEFT);	// uaktywnienie obydwu kana³ów
-  CS43_Start();								// start
-  LCD1602_Begin4BIT(RS_GPIO_Port,RS_Pin,E_Pin,D4_GPIO_Port,D4_Pin,D5_Pin,D6_Pin,D7_Pin);
-
-  HAL_I2S_Transmit_DMA(&hi2s3, (uint16_t*)" ", 1);
-
-  HAL_DAC_Start(&hdac, DAC_CHANNEL_1); 		// start DAC
-  //HAL_DAC_Start(&hdac, DAC_CHANNEL_2); 	// start DAC - sprobowac, moze sie uda z drugim kanalem
-
-  HAL_TIM_Base_Start_IT(&htim2); 			// start TIMER
+  // encoder
   HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL);
   TIM1->ARR = 15;									// liczba piosenek * 4 - 1
 
+  // microSD
   fresult = f_mount(&FatFs, "", 0);
 
   if (fresult == FR_OK) {
-	  char buff[13];
-	  strcpy(buff, "/");
-	  fresult = list_files(buff);
+	  fresult = list_files("/");
 	  parse_headers();
   }
 
   fresult = f_open(&file, song_list[1] , FA_READ);
 
+  // LCD display
+  LCD1602_Begin4BIT(RS_GPIO_Port,RS_Pin,E_Pin,D4_GPIO_Port,D4_Pin,D5_Pin,D6_Pin,D7_Pin);
   LCD1602_clear();
-  LCD1602_print(song_list[position+1]); //tutaj bedzie wpisywana aktualnie grana piosenka
+  LCD1602_print(song_list[position + 1]);
   LCD1602_noCursor();
   LCD1602_noBlink();
   LCD1602_2ndLine();
   LCD1602_print(volumeLVL);
+
+  // sound
+  CS43_Init(hi2c1, MODE_ANALOG); 			// inicjalizacja interfejsu
+  CS43_Enable_RightLeft(CS43_RIGHT_LEFT);	// uaktywnienie obydwu kana³ów
+  CS43_Start();								// start
+  HAL_I2S_Transmit_DMA(&hi2s3, (uint16_t*)" ", 1);
+  HAL_DAC_Start(&hdac, DAC_CHANNEL_1); 		// start DAC
+  //HAL_DAC_Start(&hdac, DAC_CHANNEL_2); 	// start DAC - sprobowac, moze sie uda z drugim kanalem
+  HAL_TIM_Base_Start_IT(&htim2); 			// start TIMER
 
   /* USER CODE END 2 */
 
@@ -301,11 +304,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-
-
 	  HAL_ADC_Start(&hadc1); //start potentiometer checking
-
-
 
 	  pulse_count = TIM1->CNT + 4;
 	  position = pulse_count/4;
@@ -329,13 +328,13 @@ int main(void)
 		  display();
 		  posBuffer = position;
 	  }
+
 	  if(HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK)
 	  {
 		  potentiometerValue = HAL_ADC_GetValue(&hadc1);
 	  }
 
 	  CS43_SetVolume(volumeChange(potentiometerValue)); // ustawianie glosnosci
-
 
   /* USER CODE END WHILE */
 
@@ -685,13 +684,12 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 			HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_8B_R, (uint32_t)wavBuffer1[s]);
 			//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_8B_R, 0);  - sprobowac, moze sie uda z drugim kanalem
 			s++;
-			//HAL_GPIO_WritePin(GPIOD, GPIO_PIN_15, GPIO_PIN_RESET);
-			//HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, GPIO_PIN_SET);
 			if(s == 512)
 			{
 				s = 0;
 				flag2 = 1;
-				if(timPosBuffer != posBuffer){
+				if(timPosBuffer != posBuffer)
+				{
 					ofs = 0;
 					timPosBuffer = posBuffer;
 				}
@@ -706,13 +704,12 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 			HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_8B_R, (uint32_t)wavBuffer2[s]);
 			//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_8B_R, 0);  - sprobowac, moze sie uda z drugim kanalem
 			s++;
-			//HAL_GPIO_WritePin(GPIOD, GPIO_PIN_15, GPIO_PIN_SET);
-			//HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, GPIO_PIN_RESET);
 			if(s == 512)
 			{
 				s = 0;
 				flag2 = 0;
-				if(timPosBuffer != posBuffer){
+				if(timPosBuffer != posBuffer)
+				{
 					ofs = 0;
 					timPosBuffer = posBuffer;
 				}
