@@ -107,7 +107,7 @@ int volumeHasChanged;
 // listing/parsing variables
 char song_list[256][256];			// [MAX_NUMBER_STRINGS][MAX_STRING_SIZE]
 uint32_t data_sizes[256];
-unsigned char buffer4[4];
+int lseek_starts[256];
 
 /* USER CODE END PV */
 
@@ -150,25 +150,41 @@ FRESULT list_files(char* path)
 	return res;
 }
 
+
 void parse_headers()
 {
 	FRESULT res;
 	FIL fil;
+	unsigned char buffer4[4];
 
 	for(int i = 1; i <= 4; i++)
 	{
 		res = f_open(&fil, song_list[i] , FA_READ);
-		res = f_lseek(&fil, 74);
-		res = f_read(&fil, buffer4, (FSIZE_t)4, &bytes_read);
+		int x = 0;
 
-		data_sizes[i] = buffer4[0] |
-				(buffer4[1] << 8) |
-				(buffer4[2] << 16) |
-				(buffer4[3] << 24 );
+		while(1)
+		{
 
+			res = f_lseek(&fil, x);
+			res = f_read(&fil, buffer4, (FSIZE_t)4, &bytes_read);
+
+			if(buffer4[0] == 'd' && buffer4[1] == 'a' && buffer4[2] == 't' && buffer4[3] == 'a')
+			{
+				lseek_starts[i] = x + 8;
+				res = f_lseek(&fil, x + 4);
+				res = f_read(&fil, buffer4, (FSIZE_t)4, &bytes_read);
+				data_sizes[i] = buffer4[0] |
+						(buffer4[1] << 8) |
+						(buffer4[2] << 16) |
+						(buffer4[3] << 24 );
+				break;
+			}
+			x++;
+		}
 		res = f_close(&fil);
 	}
 }
+
 
 void display()
 {
