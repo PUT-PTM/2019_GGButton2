@@ -186,7 +186,7 @@ void parse_headers()
 }
 
 
-void display()
+void display() // allows displaying data on LCD
 {
 	LCD1602_clear();
 	LCD1602_print(song_list[position]);
@@ -194,9 +194,9 @@ void display()
 	LCD1602_print(volumeLVL);
 }
 
-int volumeChange(int x)//volume changing function
+int volumeChange(int x) //volume changing function
 {
-	int times;
+	int times; // variable which counts how many times
 	int value = 0;
 	if(x < 100)
 	{
@@ -204,13 +204,13 @@ int volumeChange(int x)//volume changing function
 
 		for(int i = 0; i < 16; i++)
 		{
-			volumeLVL[i] = '\0';
+			volumeLVL[i] = '\0'; // allows to "show nothing " on the LCD screen
 		}
-		if(volumeHasChanged != value)
-		{
+		if(volumeHasChanged != value) // checking if the volumeLVL has changed since a milisecind ago,
+		{							// if so display funntion is executed to display changes on the screen
 			display();
 		}
-		volumeHasChanged=value;
+		volumeHasChanged=value; // saving current volumneLVL
 
 	}
 	else
@@ -296,12 +296,12 @@ int main(void)
 
   fresult = f_open(&file, song_list[1] , FA_READ);
 
-  // LCD display
-  LCD1602_Begin4BIT(RS_GPIO_Port,RS_Pin,E_Pin,D4_GPIO_Port,D4_Pin,D5_Pin,D6_Pin,D7_Pin);
+  // LCD initialization
+  LCD1602_Begin4BIT(RS_GPIO_Port,RS_Pin,E_Pin,D4_GPIO_Port,D4_Pin,D5_Pin,D6_Pin,D7_Pin);	//init
   LCD1602_clear();
   LCD1602_print(song_list[position + 1]);
-  LCD1602_noCursor();
-  LCD1602_noBlink();
+  LCD1602_noCursor();	// hiding cursor
+  LCD1602_noBlink();	// turning off the blinking
   LCD1602_2ndLine();
   LCD1602_print(volumeLVL);
 
@@ -341,16 +341,16 @@ int main(void)
 	  {
 		  fresult = f_close(&file);
 		  fresult = f_open(&file, song_list[position] , FA_READ);
-		  display();
+		  display(); //after switching song, display have to change
 		  posBuffer = position;
 	  }
 
-	  if(HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK)
+	  if(HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK) //function which checks the volumeLVL on potentiometer
 	  {
 		  potentiometerValue = HAL_ADC_GetValue(&hadc1);
 	  }
 
-	  CS43_SetVolume(volumeChange(potentiometerValue)); // ustawianie glosnosci
+	  CS43_SetVolume(volumeChange(potentiometerValue)); // SetVolume
 
   /* USER CODE END WHILE */
 
