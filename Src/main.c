@@ -157,7 +157,7 @@ void parse_headers()
 	FIL fil;
 	unsigned char buffer4[4];
 
-	for(int i = 1; i <= 4; i++)
+	for(int i = 1; i <= 4; i++) // dac iterator w petli w list files zeby sie dowiedziec ile jest piosenek
 	{
 		res = f_open(&fil, song_list[i] , FA_READ);
 		int x = 0;
