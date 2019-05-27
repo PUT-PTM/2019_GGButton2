@@ -108,6 +108,7 @@ int volumeHasChanged;
 char song_list[256][256];			// [MAX_NUMBER_STRINGS][MAX_STRING_SIZE]
 uint32_t data_sizes[256];
 int lseek_starts[256];
+int number_of_songs = 0;
 
 /* USER CODE END PV */
 
@@ -144,7 +145,9 @@ FRESULT list_files(char* path)
 			res = f_readdir(&dir, &fno);					// Read a directory item
 			if(res != FR_OK || fno.fname[0] == 0) break;	// Break on error or end of directory
 			strcpy(song_list[i], fno.fname);
+			number_of_songs++;
 		}
+		number_of_songs--;
 		f_closedir(&dir);
 	}
 	return res;
@@ -157,14 +160,13 @@ void parse_headers()
 	FIL fil;
 	unsigned char buffer4[4];
 
-	for(int i = 1; i <= 4; i++) // dac iterator w petli w list files zeby sie dowiedziec ile jest piosenek
+	for(int i = 1; i <= number_of_songs; i++)
 	{
 		res = f_open(&fil, song_list[i] , FA_READ);
 		int x = 0;
 
 		while(1)
 		{
-
 			res = f_lseek(&fil, x);
 			res = f_read(&fil, buffer4, (FSIZE_t)4, &bytes_read);
 
