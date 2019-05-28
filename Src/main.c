@@ -122,11 +122,15 @@ char volumeLVL[15];
 int volumeHasChanged;
 
 // listing/parsing variables
-char song_list[256][256];			// [MAX_NUMBER_STRINGS][MAX_STRING_SIZE]
-uint32_t data_sizes[256];
-int lseek_starts[256];
+char song_list[128][128];			// [MAX_NUMBER_STRINGS][MAX_STRING_SIZE]
+char clear_song_list[128][128];		// songs name without file extension .WAV (for displaying)
+uint32_t data_sizes[128];
+int lseek_starts[128];
 int number_of_songs = 0;
-unsigned char buffer200[200];//
+
+// button variables
+int start_stop = 1;
+
 
 /* USER CODE END PV */
 
@@ -146,10 +150,19 @@ static void MX_ADC1_Init(void);
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-	if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_0) == GPIO_PIN_SET)
+//	if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_0) == GPIO_PIN_SET)
+//	{
+	if(start_stop == 1)
 	{
 		NVIC_EnableIRQ(TIM2_IRQn);
+		start_stop = 0;
 	}
+	else
+	{
+		NVIC_DisableIRQ(TIM2_IRQn);
+		start_stop = 1;
+	}
+//	}
 }
 
 /* USER CODE END PFP */
@@ -189,7 +202,6 @@ void parse_headers()
 	for(int i = 1; i <= number_of_songs; i++)
 	{
 		res = f_open(&fil, song_list[i] , FA_READ);
-		res = f_read(&fil, buffer200, (FSIZE_t)200, &bytes_read);//
 		int x = 0;
 
 		while(1)
@@ -215,10 +227,33 @@ void parse_headers()
 }
 
 
-void display() // allows displaying data on LCD
+void clear_song_names()
+{
+	for(int i = 1; i <= number_of_songs; i++)
+	{
+		int x = 0;
+
+		while(1)
+		{
+			if(song_list[i][x] == '.' && song_list[i][x+1] == 'W' && song_list[i][x+2] == 'A' && song_list[i][x+3] == 'V')
+			{
+				clear_song_list[i][x] = '\0';
+				clear_song_list[i][x+1] = '\0';
+				clear_song_list[i][x+2] = '\0';
+				clear_song_list[i][x+3] = '\0';
+				break;
+			}
+			clear_song_list[i][x] = song_list[i][x];
+			x++;
+		}
+	}
+}
+
+
+void display()
 {
 	LCD1602_clear();
-	LCD1602_print(song_list[position]);
+	LCD1602_print(clear_song_list[position]);
 	LCD1602_2ndLine();
 	LCD1602_print(volumeLVL);
 }
@@ -245,8 +280,8 @@ int volumeChange(int x) //volume changing function
 	else
 	{
 		CS43_Start();
-		value = x/(82);
-		times = value/(3);
+		value = x / 82;
+		times = value / 3;
 		for(int i = 0; i < 16; i++)
 		{
 			if(times >= i)
@@ -310,11 +345,14 @@ int main(void)
   MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
 
+  NVIC_DisableIRQ(TIM2_IRQn);
+
   // microSD
   fresult = f_mount(&FatFs, "", 0);
 
   if (fresult == FR_OK) {
 	  fresult = list_files("/");
+	  clear_song_names();
 	  parse_headers();
   }
 
@@ -327,9 +365,9 @@ int main(void)
   // LCD display
   LCD1602_Begin4BIT(RS_GPIO_Port,RS_Pin,E_Pin,D4_GPIO_Port,D4_Pin,D5_Pin,D6_Pin,D7_Pin);
   LCD1602_clear();
-  LCD1602_print(song_list[position + 1]);
-  LCD1602_noCursor();	// hiding cursor
-  LCD1602_noBlink();	// turning off the blinking
+  LCD1602_print(clear_song_list[position + 1]);
+  LCD1602_noCursor();
+  LCD1602_noBlink();
   LCD1602_2ndLine();
   LCD1602_print(volumeLVL);
 
@@ -371,8 +409,8 @@ int main(void)
 		  fresult = f_open(&file, song_list[position] , FA_READ);
 		  display(); //after switching song, display have to change
 		  posBuffer = position;
-		  NVIC_EnableIRQ(TIM2_IRQn);//
-
+		  start_stop = 1;
+		  NVIC_DisableIRQ(TIM2_IRQn);
 	  }
 
 	  if(HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK) //function which checks the volumeLVL on potentiometer
@@ -380,7 +418,7 @@ int main(void)
 		  potentiometerValue = HAL_ADC_GetValue(&hadc1);
 	  }
 
-	  CS43_SetVolume(volumeChange(potentiometerValue)); // SetVolume
+CS43_SetVolume(volumeChange(potentiometerValue));			// volume setting
 
     /* USER CODE END WHILE */
 
@@ -823,12 +861,12 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 					timPosBuffer = posBuffer;
 				}
 				ofs = ofs + (FSIZE_t)512;
-				if(ofs > data_sizes[position] /*1000000000*/)
+				if(ofs > data_sizes[position])
 				{
 					ofs = 0;
-					fresult = f_lseek(&file, ofs);//
-					NVIC_DisableIRQ(TIM2_IRQn);//
-					//TIM_Cmd(TIM2, DISABLE);//
+					fresult = f_lseek(&file, ofs);
+					start_stop = 1;
+					NVIC_DisableIRQ(TIM2_IRQn);
 				}
 				fresult = f_lseek(&file, ofs);
 			}
@@ -849,12 +887,12 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 					timPosBuffer = posBuffer;
 				}
 				ofs = ofs + (FSIZE_t)512;
-				if(ofs > data_sizes[position] /*237500*/ /*1000000000*/)
+				if(ofs > data_sizes[position])
 				{
 					ofs = 0;
-					fresult = f_lseek(&file, ofs);//
-					NVIC_DisableIRQ(TIM2_IRQn);//
-					//TIM_Cmd(TIM2, DISABLE);//
+					fresult = f_lseek(&file, ofs);
+					start_stop = 1;
+					NVIC_DisableIRQ(TIM2_IRQn);
 				}
 				fresult = f_lseek(&file, ofs);
 			}
