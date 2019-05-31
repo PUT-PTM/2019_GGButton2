@@ -137,19 +137,20 @@ void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-//	if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_0) == GPIO_PIN_SET)
-//	{
-	if(start_stop == 1)
+	if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_0) == GPIO_PIN_SET)
 	{
-		NVIC_EnableIRQ(TIM2_IRQn);
-		start_stop = 0;
+		for(volatile int i = 0; i < 200000; i++){}
+		if(start_stop == 1)
+		{
+			NVIC_EnableIRQ(TIM2_IRQn);
+			start_stop = 0;
+		}
+		else
+		{
+			NVIC_DisableIRQ(TIM2_IRQn);
+			start_stop = 1;
+		}
 	}
-	else
-	{
-		NVIC_DisableIRQ(TIM2_IRQn);
-		start_stop = 1;
-	}
-//	}
 }
 
 /* USER CODE END PFP */
