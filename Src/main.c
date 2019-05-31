@@ -48,13 +48,6 @@
 #include "STM_MY_LCD16X2.h"
 
 #define  	FA_READ         	0x01
-//#define  	FA_WRITE        	0x02
-//#define  	FA_OPEN_EXISTING	0x00
-//#define  	FA_CREATE_NEW   	0x04
-//#define  	FA_CREATE_ALWAYS	0x08
-//#define  	FA_OPEN_ALWAYS  	0x10
-//#define  	FA_OPEN_APPEND  	0x30
-
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -75,44 +68,43 @@ TIM_HandleTypeDef htim2;
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
 
-// sound variables
-uint8_t wavBuffer1[512];
-uint8_t wavBuffer2[512];
 
-int flag = 0;
+// Sound variables
+uint8_t wavBuffer1[512];			// first buffer for storing and playing music
+uint8_t wavBuffer2[512];			// second buffer for storing and playing music
+
+int flag1 = 0;
 int flag2 = 0;
 
-int x = 0;
-int i = 0;
-int s = 0;
+int c = 0;							// counter
 
-// fatFS variables
-static FATFS FatFs;    				// uchwyt do urz¹dzenia FatFs (dysku, karty SD...)
-FRESULT fresult;	       			// do przechowywania wyniku operacji na bibliotece FatFs
-FIL file;                  			// uchwyt do otwartego pliku
-DWORD bytes_read;           		// liczba odczytanych byte
-FSIZE_t ofs = 0;					// offset pliku
+// FatFS variables
+static FATFS FatFs;    				// handle to FatFs device like disc or SD card
+FRESULT fresult;	       			// to storage results of operations on FatFs library
+FIL file;                  			// handle to open file
+DWORD bytes_read;           		// number of read bytes
+FSIZE_t ofs = 0;					// file offset
 
-// encoder variables
-volatile uint16_t pulse_count;		// Licznik impulsow
-volatile uint16_t position;			// Licznik przekreconych pozycji
+// Encoder variables
+volatile uint16_t pulse_count;		// impulse counter
+volatile uint16_t position;			// counter of switched positions
 uint16_t posBuffer = 1;
 uint16_t timPosBuffer = 1;
 
-// potentiometer variables
+// Potentiometer variables
 uint16_t potentiometerValue;
 char volumeLVL[15];
 int volumeHasChanged;
 
-// listing/parsing variables
-char song_list[128][128];			// [MAX_NUMBER_STRINGS][MAX_STRING_SIZE]
-char clear_song_list[128][128];		// songs name without file extension .WAV (for displaying)
-uint32_t data_sizes[128];
+// Listing/parsing variables
+char song_list[128][128];			// [MAX_NUMBER_STRINGS][MAX_STRING_SIZE] songs names with .WAV file extension
+char pure_song_list[128][128];		// songs names without .WAV file extension (for displaying purposes)
+uint32_t data_size[128];
 int lseek_starts[128];
-int number_of_songs = 0;
+int number_of_songs = 0;			// number of songs on device
 
-// button variables
-int start_stop = 1;
+// Button variables
+int start_stop = 1;					// flag for starting and stopping player
 
 
 /* USER CODE END PV */
@@ -128,27 +120,26 @@ static void MX_TIM2_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_ADC1_Init(void);
-
 void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
                                 
-
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
 
+// External interrupt for start/stop button
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
 	if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_0) == GPIO_PIN_SET)
 	{
-		for(volatile int i = 0; i < 200000; i++){}
+		for(volatile int i = 0; i < 2000000; i++){}			// delay for proper start and stop operation
 		if(start_stop == 1)
 		{
-			NVIC_EnableIRQ(TIM2_IRQn);
 			start_stop = 0;
+			NVIC_EnableIRQ(TIM2_IRQn);						// enable timer
 		}
 		else
 		{
-			NVIC_DisableIRQ(TIM2_IRQn);
 			start_stop = 1;
+			NVIC_DisableIRQ(TIM2_IRQn);						// disable timer
 		}
 	}
 }
@@ -157,63 +148,30 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 
 /* USER CODE BEGIN 0 */
 
+// Listing function - writes every song name with .WAV extension to song_list[] array
 FRESULT list_files(char* path)
 {
 	FRESULT res;
 	DIR dir;
 	FILINFO fno;
 
-	res = f_opendir(&dir, path);							// Open the directory
+	res = f_opendir(&dir, path);							// open the directory
 	if(res == FR_OK)
 	{
 		for(int i = 0; i < 256; i++)
 		{
-			res = f_readdir(&dir, &fno);					// Read a directory item
-			if(res != FR_OK || fno.fname[0] == 0) break;	// Break on error or end of directory
+			res = f_readdir(&dir, &fno);					// read a directory item
+			if(res != FR_OK || fno.fname[0] == 0) break;	// break on error or end of directory
 			strcpy(song_list[i], fno.fname);
 			number_of_songs++;
 		}
 		number_of_songs--;
-		f_closedir(&dir);
+		f_closedir(&dir);									// close the directory
 	}
 	return res;
 }
 
-
-void parse_headers()
-{
-	FRESULT res;
-	FIL fil;
-	unsigned char buffer4[4];
-
-	for(int i = 1; i <= number_of_songs; i++)
-	{
-		res = f_open(&fil, song_list[i] , FA_READ);
-		int x = 0;
-
-		while(1)
-		{
-			res = f_lseek(&fil, x);
-			res = f_read(&fil, buffer4, (FSIZE_t)4, &bytes_read);
-
-			if(buffer4[0] == 'd' && buffer4[1] == 'a' && buffer4[2] == 't' && buffer4[3] == 'a')
-			{
-				lseek_starts[i] = x + 8;
-				res = f_lseek(&fil, x + 4);
-				res = f_read(&fil, buffer4, (FSIZE_t)4, &bytes_read);
-				data_sizes[i] = buffer4[0] |
-						(buffer4[1] << 8) |
-						(buffer4[2] << 16) |
-						(buffer4[3] << 24 );
-				break;
-			}
-			x++;
-		}
-		res = f_close(&fil);
-	}
-}
-
-
+// Function that modifies names of songs (cut .WAV extension) and writes them into pure_song_list[] array
 void clear_song_names()
 {
 	for(int i = 1; i <= number_of_songs; i++)
@@ -224,15 +182,49 @@ void clear_song_names()
 		{
 			if(song_list[i][x] == '.' && song_list[i][x+1] == 'W' && song_list[i][x+2] == 'A' && song_list[i][x+3] == 'V')
 			{
-				clear_song_list[i][x] = '\0';
-				clear_song_list[i][x+1] = '\0';
-				clear_song_list[i][x+2] = '\0';
-				clear_song_list[i][x+3] = '\0';
+				pure_song_list[i][x] = '\0';
+				pure_song_list[i][x+1] = '\0';
+				pure_song_list[i][x+2] = '\0';
+				pure_song_list[i][x+3] = '\0';
 				break;
 			}
-			clear_song_list[i][x] = song_list[i][x];
+			pure_song_list[i][x] = song_list[i][x];
 			x++;
 		}
+	}
+}
+
+// Parsing function - writes every size of song into data_size[] array
+void parse_headers()
+{
+	FIL fil;
+	unsigned char buffer4[4];
+	int x = 0;
+
+	for(int i = 1; i <= number_of_songs; i++)
+	{
+		f_open(&fil, song_list[i] , FA_READ);
+		x = 0;
+
+		while(1)
+		{
+			f_lseek(&fil, x);
+			f_read(&fil, buffer4, (FSIZE_t)4, &bytes_read);
+
+			if(buffer4[0] == 'd' && buffer4[1] == 'a' && buffer4[2] == 't' && buffer4[3] == 'a')
+			{
+				lseek_starts[i] = x + 8;
+				f_lseek(&fil, x + 4);
+				f_read(&fil, buffer4, (FSIZE_t)4, &bytes_read);
+				data_size[i] = buffer4[0] |
+						(buffer4[1] << 8) |
+						(buffer4[2] << 16) |
+						(buffer4[3] << 24 );
+				break;
+			}
+			x++;
+		}
+		f_close(&fil);
 	}
 }
 
@@ -240,10 +232,11 @@ void clear_song_names()
 void display()
 {
 	LCD1602_clear();
-	LCD1602_print(clear_song_list[position]);
+	LCD1602_print(pure_song_list[position]);
 	LCD1602_2ndLine();
 	LCD1602_print(volumeLVL);
 }
+
 
 int volumeChange(int x) //volume changing function
 {
@@ -333,41 +326,51 @@ int main(void)
   MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
 
+  // Timer is disabled because GGbutton doesn't play music at the beginning
   NVIC_DisableIRQ(TIM2_IRQn);
 
-  // microSD
+
+  // Operations like listing and parsing on microSD card
   fresult = f_mount(&FatFs, "", 0);
 
-  if (fresult == FR_OK) {
+  if (fresult == FR_OK)
+  {
 	  fresult = list_files("/");
-	  clear_song_names();
-	  parse_headers();
+	  if (fresult == FR_OK)
+	  {
+		  clear_song_names();
+		  parse_headers();
+	  }
   }
 
-  fresult = f_open(&file, song_list[1] , FA_READ);
+  fresult = f_open(&file, song_list[1] , FA_READ);		// open file with first song
 
-  // encoder
-  HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL);
-  TIM1->ARR = number_of_songs * 4 - 1;					// liczba piosenek * 4 - 1
+
+  // Encoder
+  HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL);		// start timer encoder
+  TIM1->ARR = number_of_songs * 4 - 1;					// calculating reload register
+
 
   // LCD display
   LCD1602_Begin4BIT(RS_GPIO_Port,RS_Pin,E_Pin,D4_GPIO_Port,D4_Pin,D5_Pin,D6_Pin,D7_Pin);
   LCD1602_clear();
-  LCD1602_print(clear_song_list[position + 1]);
+  LCD1602_print(pure_song_list[position + 1]);
   LCD1602_noCursor();
   LCD1602_noBlink();
   LCD1602_2ndLine();
   LCD1602_print(volumeLVL);
 
-  // sound
-  CS43_Init(hi2c1, MODE_ANALOG); 			// inicjalizacja interfejsu
-  CS43_Enable_RightLeft(CS43_RIGHT_LEFT);	// uaktywnienie obydwu kana³ów
-  CS43_Start();								// start
+  // Sound
+  CS43_Init(hi2c1, MODE_ANALOG); 						// CS43 interface initialization
+  CS43_Enable_RightLeft(CS43_RIGHT_LEFT);				// enable two channels
+  CS43_Start();											// start CS43
   HAL_I2S_Transmit_DMA(&hi2s3, (uint16_t*)" ", 1);
-  HAL_DAC_Start(&hdac, DAC_CHANNEL_1); 		// start DAC
-  //HAL_DAC_Start(&hdac, DAC_CHANNEL_2); 	// start DAC - sprobowac, moze sie uda z drugim kanalem
-  HAL_TIM_Base_Start_IT(&htim2); 			// start TIMER
-  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1); //staring PWM
+  HAL_DAC_Start(&hdac, DAC_CHANNEL_1); 					// start DAC
+//  HAL_DAC_Start(&hdac, DAC_CHANNEL_2); 				// TODO: try to play stereo music
+  HAL_TIM_Base_Start_IT(&htim2); 						// starting "main" timer
+
+
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
 
   /* USER CODE END 2 */
 
@@ -375,39 +378,42 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  HAL_ADC_Start(&hadc1);		//start potentiometer checking
+	  HAL_ADC_Start(&hadc1);							//start potentiometer checking
 
 	  pulse_count = TIM1->CNT + 4;
-	  position = pulse_count/4;
+	  position = pulse_count/4;							// transform pulse_count to consecutive natural numbers
 
-	  if(flag == 0 && flag2 == 1)
+	  // read song samples and write them to wavBuffer1
+	  if(flag1 == 0 && flag2 == 1)
 	  {
 		  fresult = f_read(&file, wavBuffer1, (FSIZE_t)512, &bytes_read);
-		  flag = 1;
+		  flag1 = 1;
 	  }
 
-	  else if(flag == 1 && flag2 == 0)
+	  // read song samples and write them to wavBuffer2
+	  else if(flag1 == 1 && flag2 == 0)
 	  {
 		  fresult = f_read(&file, wavBuffer2, (FSIZE_t)512, &bytes_read);
-		  flag = 0;
+		  flag1 = 0;
 	  }
 
+	  // switching songs
 	  if(posBuffer != position)
 	  {
 		  fresult = f_close(&file);
 		  fresult = f_open(&file, song_list[position] , FA_READ);
-		  display(); //after switching song, display have to change
+		  display(); 									// after switching song, display have to change
 		  posBuffer = position;
 		  start_stop = 1;
-		  NVIC_DisableIRQ(TIM2_IRQn);
+		  NVIC_DisableIRQ(TIM2_IRQn);					// stop playing after switching song
 	  }
 
-	  if(HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK) //function which checks the volumeLVL on potentiometer
+	  if(HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK)	// function which checks the volumeLVL on potentiometer
 	  {
 		  potentiometerValue = HAL_ADC_GetValue(&hadc1);
 	  }
 
-CS43_SetVolume(volumeChange(potentiometerValue));			// volume setting
+	  CS43_SetVolume(volumeChange(potentiometerValue));	// volume setting
 
   /* USER CODE END WHILE */
 
@@ -781,20 +787,25 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 	{
 		if(flag2 == 0)
 		{
-			HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_8B_R, (uint32_t)wavBuffer1[s]);
-			//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_8B_R, 0);  - sprobowac, moze sie uda z drugim kanalem
-			s++;
-			if(s == 512)
+			HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_8B_R, (uint32_t)wavBuffer1[c]);
+//			HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_8B_R, 0);		// TODO: try to play stereo music
+			c++;
+
+			// If 512 bytes played from wavBuffer1, change flag2 to write (in main)
+			// next 512 bytes into wavBuffer1 and start playing samples from wavBuffer1
+			if(c == 512)
 			{
-				s = 0;
+				c = 0;
 				flag2 = 1;
-				if(timPosBuffer != posBuffer)				// if song was switched
+
+				if(timPosBuffer != posBuffer)			// if song was switched
 				{
 					ofs = 0;
 					timPosBuffer = posBuffer;
 				}
 				ofs = ofs + (FSIZE_t)512;
-				if(ofs > data_sizes[position])
+
+				if(ofs > data_size[position])			// end of song
 				{
 					ofs = 0;
 					fresult = f_lseek(&file, ofs);
@@ -807,20 +818,25 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
 		else if(flag2 == 1)
 		{
-			HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_8B_R, (uint32_t)wavBuffer2[s]);
-			//HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_8B_R, 0);  - sprobowac, moze sie uda z drugim kanalem
-			s++;
-			if(s == 512)
+			HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_8B_R, (uint32_t)wavBuffer2[c]);
+//			HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_8B_R, 0);		// TODO: try to play stereo music
+			c++;
+
+			// If 512 bytes played from wavBuffer2, change flag2 to write (in main)
+			// next 512 bytes into wavBuffer2 and start playing samples from wavBuffer1
+			if(c == 512)
 			{
-				s = 0;
+				c = 0;
 				flag2 = 0;
-				if(timPosBuffer != posBuffer)				// if song was switched
+
+				if(timPosBuffer != posBuffer)			// if song was switched
 				{
 					ofs = 0;
 					timPosBuffer = posBuffer;
 				}
 				ofs = ofs + (FSIZE_t)512;
-				if(ofs > data_sizes[position])
+
+				if(ofs > data_size[position])			// end of song
 				{
 					ofs = 0;
 					fresult = f_lseek(&file, ofs);
