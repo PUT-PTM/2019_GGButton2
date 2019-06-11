@@ -15,7 +15,6 @@ Wav files are stored on SD card, there is no limit in the number of songs, but k
 
 ### Tools
 
- - STM Studio
  - System Workbench for STM32
  - STM32 CubeMX
 
