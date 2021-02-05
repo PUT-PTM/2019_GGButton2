@@ -2,14 +2,16 @@
 
 ### Overview
 
-Wav player created on STM32 Microcontroller(STM32F407VG). Delight yourself listening to great music. 
+Wav player created on STM32 Microcontroller (STM32F407VG). Delight yourself listening to great music. A working device can be seen under the link below.
+
+ - https://www.youtube.com/watch?v=R_YUMCib_-U
 
 ### Description
 
-Wav files are stored on SD card, there is no limit in the number of songs, but keep in mind that every WAV needs to be in 8 audio bitdepth, 16 kHZ sample frequency and mono channel. Also song name needs to end .WAV ( lowercase won't work). GGButton usage couldn't be easier: 
+Wav files are stored on SD card, there is no limit in the number of songs, but keep in mind that every WAV needs to be in 8 audio bitdepth, 16 kHZ sample frequency and mono channel. Also song name needs to end .WAV (lowercase won't work). GGButton usage couldn't be easier: 
  - pressing button once plays the song, pressing it again will stop, press third time to resume
- - to change volume use the potentiometer ( first winder from the right)
- - to change song use the encoder ( second winder from the right)
+ - to change volume use the potentiometer (first winder from the right)
+ - to change song use the encoder (second winder from the right)
  - display's first line shows currenly chosen song
  - display's second line shows the volume level
 
